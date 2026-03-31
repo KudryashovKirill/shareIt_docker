@@ -1,0 +1,152 @@
+package ru.practicum.shareit.service;
+
+import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import ru.practicum.shareit.dto.bookingDto.BookingInputDto;
+import ru.practicum.shareit.dto.bookingDto.BookingOutputDto;
+import ru.practicum.shareit.model.Booking;
+import ru.practicum.shareit.model.Item;
+import ru.practicum.shareit.model.Status;
+import ru.practicum.shareit.model.User;
+import ru.practicum.shareit.repository.BookingRepositoryJpa;
+import ru.practicum.shareit.repository.ItemRepositoryJpa;
+import ru.practicum.shareit.repository.UserRepositoryJpa;
+import ru.practicum.shareit.util.BookingMapper;
+import ru.practicum.shareit.util.ItemMapper;
+import ru.practicum.shareit.util.exception.IllegalItemException;
+import ru.practicum.shareit.util.exception.IllegalOwnerException;
+import ru.practicum.shareit.util.exception.MyException;
+
+import java.util.List;
+
+@Service
+public class BookingServiceImpl implements BookingService {
+    private final BookingRepositoryJpa bookingRepositoryJpa;
+    private final UserRepositoryJpa userRepositoryJpa;
+    private final ItemRepositoryJpa itemRepositoryJpa;
+    private final BookingMapper bookingMapper;
+    private final ItemMapper itemMapper;
+
+    @Autowired
+    public BookingServiceImpl(BookingRepositoryJpa bookingRepositoryJpa,
+                              UserRepositoryJpa userRepositoryJpa,
+                              BookingMapper bookingMapper,
+                              ItemRepositoryJpa itemRepositoryJpa,
+                              ItemMapper itemMapper) {
+        this.bookingRepositoryJpa = bookingRepositoryJpa;
+        this.userRepositoryJpa = userRepositoryJpa;
+        this.bookingMapper = bookingMapper;
+        this.itemRepositoryJpa = itemRepositoryJpa;
+        this.itemMapper = itemMapper;
+    }
+
+    @Transactional
+    @Override
+    public BookingOutputDto create(BookingInputDto dto, Long userId) {
+        validateBookingDto(dto);
+
+        User user = checkUserIsInTable(userId);
+        Item item = checkItemIsInTable(dto);
+        isAvailableItem(item);
+        checkBookerIsNotOwner(item, userId);
+
+        Booking booking = bookingMapper.toEntity(dto);
+        booking.setBooker(user);
+        booking.setItem(item);
+        booking.setStatus(Status.WAITING);
+        bookingRepositoryJpa.save(booking);
+        return bookingMapper.toDto(booking);
+    }
+
+    @Transactional
+    @Override
+    public BookingOutputDto approve(Long bookingId, Long userId, Boolean approved) {
+        Booking booking = checkBookingIsInTable(bookingId);
+        validateUserForApprovingBooking(booking, userId);
+        validateBookingStatusForApprove(booking, userId);
+        isOverlapping(booking);
+        booking.setStatus(approved ? Status.APPROVED : Status.REJECTED);
+        bookingRepositoryJpa.save(booking);
+        return bookingMapper.toDto(booking);
+    }
+
+    @Override
+    public BookingOutputDto getBookingByBooker(Long bookingId, Long userId) {
+        Booking booking = bookingRepositoryJpa.findById(bookingId)
+                .orElseThrow(() -> new MyException("no booking found by id"));
+        validateUserForBooking(booking, userId);
+        return bookingMapper.toDto(booking);
+    }
+
+    @Override
+    public List<BookingOutputDto> getAllUsersBookings(Long userId) {
+        checkUserIsInTable(userId);
+        return bookingRepositoryJpa.findAll()
+                .stream()
+                .filter(booking -> booking.getBooker().getId().equals(userId))
+                .map(bookingMapper::toDto)
+                .toList();
+    }
+
+    private User checkUserIsInTable(Long userId) {
+        return userRepositoryJpa.findById(userId)
+                .orElseThrow(() -> new IllegalOwnerException("no user found"));
+    }
+
+    private Item checkItemIsInTable(BookingInputDto dto) {
+        return itemRepositoryJpa.findById(dto.getItemId())
+                .orElseThrow(() -> new MyException("no item found by id"));
+    }
+
+    private Booking checkBookingIsInTable(Long bookingId) {
+        return bookingRepositoryJpa.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("no booking found by id"));
+    }
+
+    private void isAvailableItem(Item item) {
+        if (!item.getAvailable()) {
+            throw new IllegalItemException("item is not available for booking");
+        }
+    }
+
+    private void validateBookingDto(BookingInputDto dto) {
+        if (dto.getStart().isAfter(dto.getEnd()) || dto.getStart().equals(dto.getEnd())) {
+            throw new IllegalArgumentException("start time must be before end time");
+        }
+    }
+
+    private void validateUserForApprovingBooking(Booking booking, Long userId) {
+        if (!booking.getItem().getOwner().getId().equals(userId)) {
+            throw new IllegalArgumentException("wrong owner for approving booking");
+        }
+    }
+
+    private void validateBookingStatusForApprove(Booking booking, Long userId) {
+        if (!booking.getStatus().equals(Status.WAITING)) {
+            throw new IllegalArgumentException("status has to be waiting");
+        }
+    }
+
+    private void validateUserForBooking(Booking booking, Long userId) {
+        if (!booking.getBooker().getId().equals(userId)) {
+            throw new IllegalArgumentException("user is not owner of booking");
+        }
+    }
+
+    private void checkBookerIsNotOwner(Item item, Long userId) {
+        if (item.getOwner().getId().equals(userId)) {
+            throw new IllegalArgumentException("owner cant book own item");
+        }
+    }
+
+    private void isOverlapping(Booking booking) {
+        List<Booking> overlapping = bookingRepositoryJpa
+                .findOverlappingApprovedBookings(booking.getItem().getId(), booking.getStart(),
+                        booking.getEnd());
+
+        if (!overlapping.isEmpty()) {
+            throw new IllegalArgumentException("Overlapping approved booking exists");
+        }
+    }
+}

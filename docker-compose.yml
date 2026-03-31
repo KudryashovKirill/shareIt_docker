@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16.1
+    container_name: shareit-db
+    environment:
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_USER: dbuser
+      POSTGRES_DB: shareit
+    volumes:
+      # Пробрасываем скрипт инициализации БД (укажите верный путь до файла)
+      - ./server/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build: ./server
+    container_name: shareit-server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Внутри Docker сети обращаемся к базе по имени сервиса 'db'
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/shareit
+      SPRING_DATASOURCE_USERNAME: dbuser
+      SPRING_DATASOURCE_PASSWORD: 12345
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+
+  gateway:
+    build: ./gateway
+    container_name: shareit-gateway
+    depends_on:
+      - server
+    ports:
+      - "8080:8080"
+    environment:
+      # Переменная должна соответствовать вашему @Value("${shareit-server.url}")
+      # Spring автоматически преобразует SHAREIT_SERVER_URL в shareit-server.url
+      SHAREIT_SERVER_URL: http://server:9090
