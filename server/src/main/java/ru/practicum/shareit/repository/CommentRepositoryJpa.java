@@ -10,4 +10,6 @@ import java.util.List;
 public interface CommentRepositoryJpa extends JpaRepository<Comment, Long> {
 
     List<Comment> findAllByItemId(Long itemId);
+
+    // wkfwm    fp' wm
 }

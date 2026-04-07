@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: dbuser
       POSTGRES_DB: shareit
     volumes:
-      # Пробрасываем скрипт инициализации БД (укажите верный путь до файла)
+
       - ./server/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
@@ -21,12 +21,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      kafka: # Добавь зависимость здесь, чтобы сервер ждал брокера
+        condition: service_started
     environment:
-      # Внутри Docker сети обращаемся к базе по имени сервиса 'db'
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/shareit
       SPRING_DATASOURCE_USERNAME: dbuser
       SPRING_DATASOURCE_PASSWORD: 12345
-      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092 # Прокидываем адрес кафки
 
   gateway:
     build: ./gateway
@@ -36,6 +37,25 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Переменная должна соответствовать вашему @Value("${shareit-server.url}")
-      # Spring автоматически преобразует SHAREIT_SERVER_URL в shareit-server.url
       SHAREIT_SERVER_URL: http://server:9090
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: shareit-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: shareit-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1

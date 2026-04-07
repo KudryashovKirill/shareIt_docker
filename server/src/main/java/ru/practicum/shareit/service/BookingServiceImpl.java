@@ -1,16 +1,17 @@
 package ru.practicum.shareit.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.dto.bookingDto.BookingInputDto;
 import ru.practicum.shareit.dto.bookingDto.BookingOutputDto;
-import ru.practicum.shareit.model.Booking;
-import ru.practicum.shareit.model.Item;
-import ru.practicum.shareit.model.Status;
-import ru.practicum.shareit.model.User;
+import ru.practicum.shareit.model.*;
 import ru.practicum.shareit.repository.BookingRepositoryJpa;
 import ru.practicum.shareit.repository.ItemRepositoryJpa;
+import ru.practicum.shareit.repository.OutboxRepository;
 import ru.practicum.shareit.repository.UserRepositoryJpa;
 import ru.practicum.shareit.util.BookingMapper;
 import ru.practicum.shareit.util.ItemMapper;
@@ -25,19 +26,28 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepositoryJpa bookingRepositoryJpa;
     private final UserRepositoryJpa userRepositoryJpa;
     private final ItemRepositoryJpa itemRepositoryJpa;
+    private final OutboxRepository outboxRepository;
     private final BookingMapper bookingMapper;
+    private final KafkaTemplate<String, BookingOutputDto> kafkaTemplate;
+    private final ObjectMapper objectMapper;
     private final ItemMapper itemMapper;
 
     @Autowired
     public BookingServiceImpl(BookingRepositoryJpa bookingRepositoryJpa,
                               UserRepositoryJpa userRepositoryJpa,
-                              BookingMapper bookingMapper,
                               ItemRepositoryJpa itemRepositoryJpa,
+                              OutboxRepository outboxRepository,
+                              BookingMapper bookingMapper,
+                              KafkaTemplate<String, BookingOutputDto> kafkaTemplate,
+                              ObjectMapper objectMapper,
                               ItemMapper itemMapper) {
         this.bookingRepositoryJpa = bookingRepositoryJpa;
         this.userRepositoryJpa = userRepositoryJpa;
-        this.bookingMapper = bookingMapper;
         this.itemRepositoryJpa = itemRepositoryJpa;
+        this.outboxRepository = outboxRepository;
+        this.bookingMapper = bookingMapper;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
         this.itemMapper = itemMapper;
     }
 
@@ -56,7 +66,17 @@ public class BookingServiceImpl implements BookingService {
         booking.setItem(item);
         booking.setStatus(Status.WAITING);
         bookingRepositoryJpa.save(booking);
-        return bookingMapper.toDto(booking);
+        BookingOutputDto outputDto = bookingMapper.toDto(booking);
+        try {
+            OutboxEvent event = new OutboxEvent();
+            event.setTopic("bookings-topic");
+            event.setPayload(objectMapper.writeValueAsString(outputDto));
+            outboxRepository.save(event);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Ошибка подготовки данных для Outbox", e);
+        }
+//        kafkaTemplate.send("bookings-topic", String.valueOf(outputDto.getId()), outputDto);
+        return outputDto;
     }
 
     @Transactional
