@@ -16,7 +16,7 @@ import java.util.Map;
 
 @Component
 public class BookingClient extends BaseClient {
-    private final static String API_PREFIX = "/bookings";
+    private static final String API_PREFIX = "/bookings";
 
     public BookingClient(@Value("${shareit-server.url}") String serverUrl, RestTemplateBuilder builder) {
         super(

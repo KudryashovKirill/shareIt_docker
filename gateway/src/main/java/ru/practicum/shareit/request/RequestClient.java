@@ -15,7 +15,7 @@ import java.util.Map;
 
 @Component
 public class RequestClient extends BaseClient {
-    private final static String API_PREFIX = "/items";
+    private static final String API_PREFIX = "/items";
 
     public RequestClient(@Value("${shareit-server.url}") String serverUrl, RestTemplateBuilder builder) {
         super(

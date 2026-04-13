@@ -39,11 +39,11 @@ services:
     environment:
       SHAREIT_SERVER_URL: http://server:9090
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.0
-    container_name: shareit-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
+#  zookeeper:
+#    image: confluentinc/cp-zookeeper:7.3.0
+#    container_name: shareit-zookeeper
+#    environment:
+#      ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka:
     image: apache/kafka:latest
@@ -51,24 +51,19 @@ services:
     ports:
       - "9092:9092"
     environment:
-      # Режим KRaft: один контейнер и за брокера, и за контроллер
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
 
-      # Сеть: слушаем внутри на 9092, контроллер на 9093
       KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:9093'
-      # Рекламируем адрес "kafka" для других контейнеров (нашего сервера)
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092'
 
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
 
-      # Сгенерированный ID кластера (обязателен для KRaft)
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
 
-      # Оптимизация для одного узла (чтобы не ждал репликации)
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1

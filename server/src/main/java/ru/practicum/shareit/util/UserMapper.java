@@ -7,6 +7,8 @@ import ru.practicum.shareit.model.User;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {
+
     User toEntity(UserInputDto dto);
+
     UserOutputDto toOutputDto(User user);
 }
