@@ -31,10 +31,10 @@ public class OutboxScheduler {
         if (events.isEmpty()) {
             return;
         }
-        log.debug("Найдено {} событий в Outbox для отправки", events.size());
+        log.info("Найдено {} событий в Outbox для отправки", events.size());
         for (OutboxEvent event : events) {
             try {
-                kafkaTemplate.send(event.getTopic(), event.getPayload())
+                kafkaTemplate.send(event.getTopic(), event.getKey(), event.getPayload())
                         .get(5, TimeUnit.SECONDS);
                 outboxRepository.delete(event);
             } catch (Exception e) {

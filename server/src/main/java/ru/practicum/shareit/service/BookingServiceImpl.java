@@ -71,6 +71,7 @@ public class BookingServiceImpl implements BookingService {
             OutboxEvent event = new OutboxEvent();
             event.setTopic("bookings-topic");
             event.setPayload(objectMapper.writeValueAsString(outputDto));
+            event.setKey(String.valueOf(userId));
             outboxRepository.save(event);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Ошибка подготовки данных для Outbox", e);
