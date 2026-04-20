@@ -2,6 +2,9 @@ package ru.practicum.shareit.service;
 
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.dto.userDto.UserInputDto;
 import ru.practicum.shareit.dto.userDto.UserOutputDto;
@@ -28,6 +31,7 @@ public class UserServiceImpl implements UserService {
 
     @Transactional
     @Override
+    @CacheEvict(value = "users_list", allEntries = true)
     public UserOutputDto create(UserInputDto userDto) {
         checkUniqueEmail(userDto);
         validateEmail(userDto);
@@ -38,8 +42,12 @@ public class UserServiceImpl implements UserService {
 
     @Transactional
     @Override
-    public UserOutputDto update(Long id, UserInputDto userDto) {
-        User user = checkIsInTable(id);
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#userId"),
+            @CacheEvict(value = "users_list", allEntries = true)
+    })
+    public UserOutputDto update(Long userId, UserInputDto userDto) {
+        User user = checkIsInTable(userId);
         if (userDto.getEmail() != null && !userDto.getEmail().equals(user.getEmail())) {
             checkUniqueEmail(userDto);
             validateEmail(userDto);
@@ -52,12 +60,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserOutputDto getById(Long id) {
-        return userMapper.toOutputDto(userRepositoryJpa.findById(id).orElseThrow(() ->
-                new NoSuchElementException("no user found by id")));
+    @Cacheable(value = "users", key = "#userId")
+    public UserOutputDto getById(Long userId) {
+        return userMapper.toOutputDto(userRepositoryJpa.findById(userId).orElseThrow(() ->
+                new NoSuchElementException("no user found by userId")));
     }
 
     @Override
+    @Cacheable(value = "users_list")
     public List<UserOutputDto> getAll() {
         return userRepositoryJpa.findAll()
                 .stream()
@@ -67,8 +77,12 @@ public class UserServiceImpl implements UserService {
 
     @Transactional
     @Override
-    public Map<String, Boolean> delete(Long id) {
-        User userForDelete = checkIsInTable(id);
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#userId"),
+            @CacheEvict(value = "users_list", allEntries = true)
+    })
+    public Map<String, Boolean> delete(Long userId) {
+        User userForDelete = checkIsInTable(userId);
         userRepositoryJpa.delete(userForDelete);
         return Map.of("deleted", true);
     }

@@ -6,6 +6,7 @@ import ru.practicum.shareit.dto.itemDto.ItemOutputDto;
 import ru.practicum.shareit.dto.userDto.UserOutputDto;
 import ru.practicum.shareit.model.Status;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Getter
 @Setter
-public class BookingOutputDto {
+public class BookingOutputDto implements Serializable {
     Long id;
     LocalDateTime start;
     LocalDateTime end;

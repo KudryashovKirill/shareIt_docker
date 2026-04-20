@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.dto.bookingDto.BookingInputDto;
@@ -53,6 +56,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Transactional
     @Override
+    @CacheEvict(value = "user_bookings", key = "#userId")
     public BookingOutputDto create(BookingInputDto dto, Long userId) {
         validateBookingDto(dto);
 
@@ -82,6 +86,10 @@ public class BookingServiceImpl implements BookingService {
 
     @Transactional
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "bookings", key = "#bookingId"),
+            @CacheEvict(value = "user_bookings", allEntries = true)
+    })
     public BookingOutputDto approve(Long bookingId, Long userId, Boolean approved) {
         Booking booking = checkBookingIsInTable(bookingId);
         validateUserForApprovingBooking(booking, userId);
@@ -93,6 +101,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    @Cacheable(value = "bookings", key = "#bookingId")
     public BookingOutputDto getBookingByBooker(Long bookingId, Long userId) {
         Booking booking = bookingRepositoryJpa.findById(bookingId)
                 .orElseThrow(() -> new MyException("no booking found by id"));
@@ -101,6 +110,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    @Cacheable(value = "user_bookings", key = "#userId")
     public List<BookingOutputDto> getAllUsersBookings(Long userId) {
         checkUserIsInTable(userId);
         return bookingRepositoryJpa.findAll()

@@ -1,7 +1,11 @@
 package ru.practicum.shareit.service;
 
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,6 +32,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class ItemServiceImpl implements ItemService {
     private final ItemRepositoryJpa itemRepositoryJpa;
@@ -57,6 +62,7 @@ public class ItemServiceImpl implements ItemService {
 
     @Transactional
     @Override
+    @CacheEvict(value = "items_list", allEntries = true)
     public ItemOutputDto create(ItemInputDto dto, Long userId) {
         User owner = checkUserIsInTable(userId);
         Item item = itemMapper.toEntity(dto);
@@ -67,6 +73,10 @@ public class ItemServiceImpl implements ItemService {
 
     @Transactional
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "items", allEntries = true),
+            @CacheEvict(value = "items_list", allEntries = true)
+    })
     public ItemOutputDto update(Long itemId, ItemInputDto dto, Long userId) {
         Item item = checkItemIsInTable(itemId);
         validateIsUserOwnerOfItem(item, userId);
@@ -76,6 +86,10 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "items", allEntries = true),
+            @CacheEvict(value = "items_list", allEntries = true)
+    })
     public ItemOutputDto addComment(Long itemId, Long userId, CommentInputDto commentInputDto) {
         Item item = checkItemIsInTable(itemId);
         User user = checkUserIsInTable(userId);
@@ -96,7 +110,9 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Cacheable(value = "items", key = "#itemId + '_' + #userId")
     public ItemOutputDto getById(Long itemId, Long userId) {
+        System.out.println("Получен из базы");
         Item item = checkItemIsInTable(itemId);
 
         ItemOutputDto itemOutputDto = itemMapper.toOutputDto(item);
@@ -114,8 +130,9 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public List<ItemOutputDto> getAllByOwner(Long ownerId, Pageable pageable) {
-        return itemRepositoryJpa.findAllByOwnerId(ownerId, pageable)
+    @Cacheable(value = "items_list", key = "#userId + #pageable.pageNumber + #pageable.pageSize")
+    public List<ItemOutputDto> getAllByOwner(Long userId, Pageable pageable) {
+        return itemRepositoryJpa.findAllByOwnerId(userId, pageable)
                 .stream()
                 .map(itemMapper::toOutputDto)
                 .collect(Collectors.toList());
@@ -131,6 +148,10 @@ public class ItemServiceImpl implements ItemService {
 
     @Transactional
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = "items", allEntries = true),
+            @CacheEvict(value = "items_list", allEntries = true)
+    })
     public Map<String, Boolean> delete(Long itemId) {
         Item item = itemRepositoryJpa.findById(itemId)
                 .orElseThrow(() -> new NoSuchElementException("Item not found"));

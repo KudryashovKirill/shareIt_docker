@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:16.1
@@ -6,8 +8,8 @@ services:
       POSTGRES_PASSWORD: 12345
       POSTGRES_USER: dbuser
       POSTGRES_DB: shareit
+    # Данные теперь будут лежать в docker-desktop-data на диске D
     volumes:
-
       - ./server/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
@@ -21,13 +23,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      kafka: # Добавь зависимость здесь, чтобы сервер ждал брокера
+      kafka:
         condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/shareit
       SPRING_DATASOURCE_USERNAME: dbuser
       SPRING_DATASOURCE_PASSWORD: 12345
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092 # Прокидываем адрес кафки
+      # Внутри сети Docker обращаемся по имени сервиса и внутреннему порту
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
   gateway:
     build: ./gateway
@@ -37,33 +40,43 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Убедись, что server в коде слушает 9090, иначе поменяй на 8080
       SHAREIT_SERVER_URL: http://server:9090
-
-#  zookeeper:
-#    image: confluentinc/cp-zookeeper:7.3.0
-#    container_name: shareit-zookeeper
-#    environment:
-#      ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka:
     image: apache/kafka:latest
     container_name: shareit-kafka
     ports:
-      - "9092:9092"
+      # Пробрасываем свободный порт 9098 из Windows на внутренний 9094
+      - "9098:9094"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
 
-      KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:9093'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092'
+      # PLAINTEXT для своих (9092), EXTERNAL для тебя в Windows (9094)
+      KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092,EXTERNAL://localhost:9098'
 
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
-
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  redis:
+    image: redis:7-alpine
+    container_name: shareit-redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: shareit-redis-insight
+    ports:
+      - "8090:8001"
+    depends_on:
+      - redis

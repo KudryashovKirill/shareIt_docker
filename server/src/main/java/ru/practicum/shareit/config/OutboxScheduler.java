@@ -1,4 +1,4 @@
-package ru.practicum.shareit.schedule;
+package ru.practicum.shareit.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
