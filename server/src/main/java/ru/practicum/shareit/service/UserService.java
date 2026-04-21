@@ -9,11 +9,11 @@ import java.util.Map;
 public interface UserService {
     UserOutputDto create(UserInputDto userDto);
 
-    UserOutputDto update(Long id, UserInputDto userDto);
+    UserOutputDto update(Long userId, UserInputDto userDto);
 
-    UserOutputDto getById(Long id);
+    UserOutputDto getById(Long userId);
 
     List<UserOutputDto> getAll();
 
-    Map<String, Boolean> delete(Long id);
+    Map<String, Boolean> delete(Long userId);
 }

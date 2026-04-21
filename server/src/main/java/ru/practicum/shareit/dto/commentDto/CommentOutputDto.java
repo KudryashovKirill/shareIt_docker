@@ -6,11 +6,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ru.practicum.shareit.dto.userDto.UserOutputDto;
 
+import java.io.Serializable;
+
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class CommentOutputDto {
+public class CommentOutputDto implements Serializable {
     Long id;
     UserOutputDto author;
     String text;

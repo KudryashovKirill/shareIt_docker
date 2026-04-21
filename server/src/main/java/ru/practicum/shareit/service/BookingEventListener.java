@@ -1,5 +1,6 @@
 package ru.practicum.shareit.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,8 @@ public class BookingEventListener {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "bookings-topic", groupId = "shareit-group")
-    public void listen(BookingOutputDto dto) {
+    public void listen(String message) throws JsonProcessingException {
+        BookingOutputDto dto = objectMapper.readValue(message, BookingOutputDto.class);
         if (processedOrders.contains(dto.getId())) {
             log.warn("Событие бронирования ID: {} уже обработано. Пропускаем.", dto.getId());
             return;

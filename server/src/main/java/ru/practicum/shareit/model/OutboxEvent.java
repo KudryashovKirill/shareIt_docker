@@ -19,6 +19,7 @@ public class OutboxEvent {
 
     private String topic;
     private String payload;
+    private String key;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 }

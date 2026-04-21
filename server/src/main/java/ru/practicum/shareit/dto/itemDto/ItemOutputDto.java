@@ -6,6 +6,7 @@ import ru.practicum.shareit.dto.bookingDto.BookingOutputDto;
 import ru.practicum.shareit.dto.commentDto.CommentOutputDto;
 import ru.practicum.shareit.dto.userDto.UserOutputDto;
 
+import java.io.Serializable;
 import java.util.List;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -13,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @Getter
 @Setter
-public class ItemOutputDto {
+public class ItemOutputDto implements Serializable {
     Long id;
     String name;
     String description;

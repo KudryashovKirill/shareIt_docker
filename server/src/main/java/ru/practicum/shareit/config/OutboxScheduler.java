@@ -1,4 +1,4 @@
-package ru.practicum.shareit.schedule;
+package ru.practicum.shareit.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,10 +31,10 @@ public class OutboxScheduler {
         if (events.isEmpty()) {
             return;
         }
-        log.debug("Найдено {} событий в Outbox для отправки", events.size());
+        log.info("Найдено {} событий в Outbox для отправки", events.size());
         for (OutboxEvent event : events) {
             try {
-                kafkaTemplate.send(event.getTopic(), event.getPayload())
+                kafkaTemplate.send(event.getTopic(), event.getKey(), event.getPayload())
                         .get(5, TimeUnit.SECONDS);
                 outboxRepository.delete(event);
             } catch (Exception e) {
