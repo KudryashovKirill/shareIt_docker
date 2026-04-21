@@ -8,7 +8,6 @@ services:
       POSTGRES_PASSWORD: 12345
       POSTGRES_USER: dbuser
       POSTGRES_DB: shareit
-    # Данные теперь будут лежать в docker-desktop-data на диске D
     volumes:
       - ./server/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
@@ -29,7 +28,6 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/shareit
       SPRING_DATASOURCE_USERNAME: dbuser
       SPRING_DATASOURCE_PASSWORD: 12345
-      # Внутри сети Docker обращаемся по имени сервиса и внутреннему порту
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
   gateway:
@@ -40,14 +38,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Убедись, что server в коде слушает 9090, иначе поменяй на 8080
       SHAREIT_SERVER_URL: http://server:9090
 
   kafka:
     image: apache/kafka:latest
     container_name: shareit-kafka
     ports:
-      # Пробрасываем свободный порт 9098 из Windows на внутренний 9094
       - "9098:9094"
     environment:
       KAFKA_NODE_ID: 1
@@ -55,7 +51,6 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
 
-      # PLAINTEXT для своих (9092), EXTERNAL для тебя в Windows (9094)
       KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094'
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092,EXTERNAL://localhost:9098'
 

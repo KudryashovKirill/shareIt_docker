@@ -16,7 +16,7 @@ public class BookingOutputDto {
     Long id;
     LocalDateTime start;
     LocalDateTime end;
-    Status status;
+    BookingState status;
     ItemOutputDto item;
     UserOutputDto booker;
 }
